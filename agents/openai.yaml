@@ -1,0 +1,13 @@
+interface:
+  display_name: sk-happy
+  short_description: 下载视频，按真实格式及MD5规范命名，保存提示词并提取首尾帧
+  default_prompt: 使用 $sk-happy 处理视频URL和提示词，下载到当前工作空间并提取首尾帧。
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true
