@@ -1,6 +1,6 @@
 ---
 name: sk-happy
-description: 输入视频URL及提示词，下载到当前工作空间assets/日期，使用Python计算MD5和识别真实容器格式，按时间戳_MD5.后缀重命名，调用FFmpeg提取首尾帧。用于视频下载预处理、素材归档、首尾帧提取；不执行视频生成。
+description: 输入视频URL及提示词，下载归档、计算MD5、识别真实容器格式并提取首尾帧；也可按用户要求将本地图片、视频等文件上传到云并返回资源URL。用于视频素材预处理、归档及本地文件上传；不执行视频生成。
 ---
 
 # 视频素材预处理
@@ -41,3 +41,30 @@ python3 /绝对路径/sk-happy/scripts/ingest_video.py \
 - `<毫秒时间戳>_<MD5>_metadata.json`
 
 首帧是首个非封面视频轨的第一张解码帧，尾帧是同一轨最后一张解码帧。单帧视频允许两张图相同。为保证尾帧准确，脚本顺序解码全片并持续覆盖临时尾帧图片，处理长视频可能较慢。文件类型指容器格式，不是H.264/H.265等视频编码。MD5基于原始下载字节，重命名不转码。支持MP4、MOV、3GP、3G2、WebM、MKV、AVI、TS、MPEG、FLV、Ogg及ASF；无法可靠识别时拒绝猜测后缀。
+
+## 本地文件上传到云
+
+当用户要求上传本地图片、视频或其他文件并获取资源 URL 时，使用以下接口。单独上传不要求视频 URL 或提示词，也不必执行前面的下载预处理。预处理完成后仅在用户要求上传时上传指定产物。
+
+- 工具依赖：`curl`（也可使用支持 multipart/form-data 的 HTTP 客户端）。
+- 请求方法：`POST`。
+- Host：从当前工程根目录 `.env` 的 `SK_HAPPY_UPLOAD_HOST` 读取，值包含协议和可选端口。按键解析配置，不执行 `.env` 内容；缺失或不是 HTTP/HTTPS 地址时报告配置错误，不使用硬编码回退值。
+- 接口：`${SK_HAPPY_UPLOAD_HOST%/}/pubbiz/common/upload-test`。
+- 无需额外请求头。
+- 请求体：`multipart/form-data`，文件字段名为 `file`。让客户端自动设置含 boundary 的 Content-Type。
+
+先确认目标本地文件存在，并将 `.env` 中读取的 host 赋给进程变量 `SK_HAPPY_UPLOAD_HOST`，再执行请求。将示例中的路径替换为用户指定文件的绝对路径，保留可靠的引号；不要把 Markdown 链接语法或终端续行提示符 `>` 带入命令。
+
+```bash
+curl --fail-with-body --silent --show-error --location \
+  "${SK_HAPPY_UPLOAD_HOST%/}/pubbiz/common/upload-test" \
+  --form 'file=@"/Users/jv/Desktop/图片/22.png"'
+```
+
+成功响应示例：
+
+```json
+{"code":2000,"msg":"成功","data":"https://d1so8k724hha4.cloudfront.net/jv-test/hypit-test/2026-10-27/1793090503187_22.png"}
+```
+
+解析 JSON，仅在 HTTP 请求成功、`code` 为 `2000` 且 `data` 为非空 HTTP/HTTPS URL 时报告上传成功。`data` 就是资源 URL，向用户返回可点击链接及对应本地文件路径。失败时报告 HTTP 状态或业务 `code`、`msg`，不要编造 URL。上传不删除或覆盖本地原文件。接口的文件大小、类型限制未给出，遇到服务端拒绝时以实际响应为准。
